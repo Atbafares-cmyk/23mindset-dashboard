@@ -78,7 +78,6 @@ td{padding:9px 11px;color:#1a1a1a;vertical-align:middle}
 .sat-card-label{font-size:11px;color:#888;margin-bottom:4px}
 .sat-card-value{font-size:20px;font-weight:700}
 .sat-card.good .sat-card-value{color:#16a34a}.sat-card.medium .sat-card-value{color:#d97706}.sat-card.low .sat-card-value{color:#dc2626}
-.sat-card.ca{border-color:#f0c0cc;background:#fff8f9}.sat-card.ca .sat-card-value{color:#c0395a}
 .sat-card-sub{font-size:10px;color:#bbb;margin-top:2px}
 .sat-empty{color:#bbb;font-size:13px;text-align:center;padding:2rem;line-height:1.8}
 .sat-badge{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle}
@@ -155,7 +154,7 @@ const LOGO_SRC=`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmln
 const STATUTS=["Payé","En attente","À venir","Litige"];
 const TAUX=0.26;const HEURES_PAR_JOUR=7;
 const COLOR_PALETTE=["#c0395a","#7c3aed","#0891b2","#d97706","#059669","#dc2626","#2563eb","#db2777","#0f766e","#92400e","#4f46e5","#be185d","#0284c7","#16a34a","#9333ea"];
-const THEMES=["Management","Communication","Vente / Dév. commercial","Gestion du stress","Posture professionnelle","Leadership","Prise de parole","Cohésion d'équipe","Techniques pédagogiques","Autre"];
+const THEMES=["Management","Communication","Vente / Dév. commercial","Phoning","Gestion du stress","Gestion de conflits","Posture professionnelle","Leadership","Prise de parole","Cohésion d'équipe","Techniques pédagogiques","Autre"];
 const DEFAULT_CLIENTS=[
   {name:"Formasuite",hex:"#c0395a",certifiante:false,tarifs:[{label:"Journée",taux:400,unite:"j"}],delai:{jours:45,regle:"standard"}},
   {name:"Bahy",hex:"#7c3aed",certifiante:true,tarifs:[{label:"Formation CBS",taux:25,unite:"h"},{label:"Jury",taux:25,unite:"h"}],delai:{jours:30,regle:"le15"}},
@@ -234,16 +233,14 @@ let missions=loadData();
 let nextId=missions.reduce((a,x)=>Math.max(a,x.id),0)+1;
 
 // ── STATE ─────────────────────────────────────────────
-let fC="",fS="",fQ="",fU="",fM="",fY="";
+let fC="",fS="",fQ="",fU="",fM="";
 let satFC="",satFT="",satFTh="";
-let caFC="",caFY="",caFT="",caFTh="";
-let sortAsc=true,showSat=false,showCA=false;
+let sortAsc=true,showSat=false;
 let modal=null,clientModal=null;
 let chartEvol=null,chartPie=null;
 
 // ── FILTERS / CHARTS ──────────────────────────────────
-function getMoisList(){return Array.from(new Set(missions.filter(m=>!fY||primaryDate(m).slice(0,4)===fY).map(m=>primaryDate(m).slice(0,7)).filter(Boolean))).sort();}
-function getAnneeList(){return Array.from(new Set(missions.map(m=>primaryDate(m).slice(0,4)).filter(Boolean))).sort();}
+function getMoisList(){return Array.from(new Set(missions.map(m=>primaryDate(m).slice(0,7)).filter(Boolean))).sort();}
 function getFiltered(){
   let list=missions.filter(m=>{
     if(fC&&m.client!==fC)return false;
@@ -251,7 +248,6 @@ function getFiltered(){
     if(fU==="paye"&&!m.urssafPaye)return false;
     if(fU==="non"&&m.urssafPaye)return false;
     const pd=primaryDate(m);
-    if(fY&&pd.slice(0,4)!==fY)return false;
     if(fM&&pd.slice(0,7)!==fM)return false;
     if(fQ&&!m.intitule.toLowerCase().includes(fQ.toLowerCase())&&!m.type.toLowerCase().includes(fQ.toLowerCase()))return false;
     return true;
@@ -277,7 +273,6 @@ function buildCharts(){
 // ── SATISFACTION SECTION ──────────────────────────────
 function buildSatSection(){
   const pool=missions.filter(m=>{const c=getClient(m.client);return c&&!c.certifiante&&m.satisfaction!=null&&m.satisfaction!=="";});
-  const globalAvg=pool.length?(pool.reduce((s,m)=>s+parseFloat(m.satisfaction),0)/pool.length):null;
   let list=pool;
   if(satFC)list=list.filter(m=>m.client===satFC);
   if(satFT)list=list.filter(m=>m.type===satFT);
@@ -310,7 +305,6 @@ function buildSatSection(){
         <span class="sat-count">${list.length} formation${list.length!==1?"s":""}</span>
       </div>
     </div>
-    ${globalAvg!==null?`<div style="margin-bottom:14px"><div class="sat-card ${satCls(globalAvg)}" style="display:inline-block;min-width:170px"><div class="sat-card-label">Moyenne générale</div><div class="sat-card-value" style="font-size:26px">${globalAvg.toFixed(1)}%</div><div class="sat-card-sub">${pool.length} formation${pool.length>1?"s":""} évaluée${pool.length>1?"s":""}</div></div></div>`:""}
     ${list.length===0
       ?`<div class="sat-empty">Aucun taux de satisfaction renseigné pour les formations continues.<br>Éditez vos missions Formasuite et renseignez la thématique + le taux obtenu.</div>`
       :`<div class="sat-groups">
@@ -320,57 +314,6 @@ function buildSatSection(){
       </div>`}
   </div>`;
 }
-
-// ── ANALYSE CA SECTION ────────────────────────────────
-function buildCASection(){
-  let list=missions.slice();
-  if(caFC)list=list.filter(m=>m.client===caFC);
-  if(caFY)list=list.filter(m=>primaryDate(m).slice(0,4)===caFY);
-  if(caFT)list=list.filter(m=>m.type===caFT);
-  if(caFTh)list=list.filter(m=>m.theme===caFTh);
-  const totalCA=list.reduce((s,m)=>s+ca(m),0);const totalJ=list.reduce((s,m)=>s+joursM(m),0);
-  function groupBy(keyFn){
-    const obj={};
-    list.forEach(m=>{const k=keyFn(m);if(!k)return;if(!obj[k])obj[k]={ca:0,count:0,jours:0};obj[k].ca+=ca(m);obj[k].count++;obj[k].jours+=joursM(m);});
-    return obj;
-  }
-  function cards(obj,fmtLabel){
-    const entries=Object.entries(obj);
-    if(!entries.length)return'<span style="color:#ccc;font-size:12px;font-style:italic">Aucune donnée</span>';
-    return entries.sort((a,b)=>b[1].ca-a[1].ca).map(([k,{ca:c,count,jours}])=>
-      `<div class="sat-card ca"><div class="sat-card-label">${fmtLabel?fmtLabel(k):k}</div><div class="sat-card-value">${fmt(c)}</div><div class="sat-card-sub">${count} mission${count>1?"s":""} · ${jours.toFixed(1)}j</div></div>`
-    ).join("");
-  }
-  const byClient=groupBy(m=>m.client);
-  const byAnnee=groupBy(m=>primaryDate(m).slice(0,4));
-  const byType=groupBy(m=>m.type);
-  const byTheme=groupBy(m=>m.theme);
-  const allC=[...new Set(missions.map(m=>m.client))];const allY=getAnneeList();const allT=[...new Set(missions.map(m=>m.type))];const allTh=[...new Set(missions.map(m=>m.theme).filter(Boolean))];
-  const cOp=allC.map(c=>`<option value="${c}"${caFC===c?" selected":""}>${c}</option>`).join("");
-  const yOp=allY.map(y=>`<option value="${y}"${caFY===y?" selected":""}>${y}</option>`).join("");
-  const tOp=allT.map(t=>`<option value="${t}"${caFT===t?" selected":""}>${t}</option>`).join("");
-  const thOp=allTh.map(t=>`<option value="${t}"${caFTh===t?" selected":""}>${t}</option>`).join("");
-  return`<div class="sat-section">
-    <div class="sat-header">
-      <h4>💰 Analyse du chiffre d'affaires</h4>
-      <div class="sat-filters">
-        ${allC.length>1?`<select onchange="caFC=this.value;render()"><option value="">Tous les clients</option>${cOp}</select>`:""}
-        ${allY.length>1?`<select onchange="caFY=this.value;render()"><option value="">Toutes les années</option>${yOp}</select>`:""}
-        ${allT.length>1?`<select onchange="caFT=this.value;render()"><option value="">Tous les types</option>${tOp}</select>`:""}
-        ${allTh.length>1?`<select onchange="caFTh=this.value;render()"><option value="">Toutes les thématiques</option>${thOp}</select>`:""}
-        <span class="sat-count">${list.length} mission${list.length!==1?"s":""}</span>
-      </div>
-    </div>
-    <div style="margin-bottom:14px"><div class="sat-card ca" style="display:inline-block;min-width:170px"><div class="sat-card-label">CA total (filtré)</div><div class="sat-card-value" style="font-size:26px">${fmt(totalCA)}</div><div class="sat-card-sub">${totJDisplay(totalJ)}</div></div></div>
-    <div class="sat-groups">
-      <div><div class="sat-group-title">Par organisme</div><div class="sat-cards">${cards(byClient)}</div></div>
-      <div><div class="sat-group-title">Par année</div><div class="sat-cards">${cards(byAnnee)}</div></div>
-      <div><div class="sat-group-title">Par type de mission</div><div class="sat-cards">${cards(byType)}</div></div>
-      ${Object.keys(byTheme).length?`<div><div class="sat-group-title">Par thématique</div><div class="sat-cards">${cards(byTheme)}</div></div>`:""}
-    </div>
-  </div>`;
-}
-function totJDisplay(j){return`${j.toFixed(1)}j travaillé${j>1?"s":""}`;}
 
 // ── MISSION MODAL ─────────────────────────────────────
 function blank(c){const t=defTarif(c);return{client:c,intitule:"",dateMode:"single",dateDebut:"",dateFin:"",dates:[],newDate:"",dateFacture:"",taux:t.taux,qte:"",unite:t.unite,type:t.label,statut:"À venir",urssafPaye:false,theme:"",satisfaction:null};}
@@ -558,7 +501,6 @@ function toggleUrssaf(id){missions=missions.map(m=>m.id===id?{...m,urssafPaye:!m
 function delMission(id){if(!confirm("Supprimer cette mission ?"))return;missions=missions.filter(m=>m.id!==id);persist();render();}
 function toggleSort(){sortAsc=!sortAsc;render();}
 function toggleSat(){showSat=!showSat;render();}
-function toggleCA(){showCA=!showCA;render();}
 
 // ── RENDER ────────────────────────────────────────────
 function render(){
@@ -571,8 +513,6 @@ function render(){
   const totJ=src.reduce((s,m)=>s+joursM(m),0);
   const today=new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"});
   const moisList=getMoisList();
-  const anneeList=getAnneeList();
-  const anneeOpts=anneeList.map(y=>`<option value="${y}"${fY===y?" selected":""}>${y}</option>`).join("");
   const moisOpts=moisList.map(m=>`<option value="${m}"${fM===m?" selected":""}>${fmtMois(m)}</option>`).join("");
   const clientOpts=clients.map(c=>`<option value="${c.name}"${fC===c.name?" selected":""}>${c.name}</option>`).join("");
   const legend=clients.map(c=>`<div class="cl-item"><div class="cl-dot" style="background:${c.hex}"></div>${c.name}</div>`).join("");
@@ -618,21 +558,18 @@ function render(){
 </div>
 <div class="toolbar">
   <input type="text" placeholder="Rechercher…" value="${fQ}" oninput="fQ=this.value;render()" style="width:130px">
-  <select onchange="fY=this.value;fM='';render()"><option value="">Toutes les années</option>${anneeOpts}</select>
   <select onchange="fM=this.value;render()"><option value="">Tous les mois</option>${moisOpts}</select>
   <select onchange="fC=this.value;render()"><option value="">Tous les clients</option>${clientOpts}</select>
   <select onchange="fS=this.value;render()"><option value="">Tous les statuts</option>${STATUTS.map(s=>`<option value="${s}"${fS===s?" selected":""}>${s}</option>`).join("")}</select>
   <select onchange="fU=this.value;render()"><option value="">URSSAF : tous</option><option value="paye"${fU==="paye"?" selected":""}>Payée</option><option value="non"${fU==="non"?" selected":""}>Non payée</option></select>
   <button class="btn-sort${sortAsc?" active":""}" onclick="toggleSort()">${sortAsc?"↑ Date":"↓ Date"}</button>
   <button class="btn-sat${showSat?" active":""}" onclick="toggleSat()">📊 Satisfaction</button>
-  <button class="btn-sat${showCA?" active":""}" onclick="toggleCA()">💰 Analyse CA</button>
   <button class="btn-add" onclick="openNew()">+ Ajouter</button>
 </div>
 <div class="table-wrap"><table>
   <thead><tr><th>Client</th><th>Type</th><th>Mission</th><th>Date(s)</th><th>Facture</th><th>Taux</th><th>Qté</th><th>Montant</th><th>Statut</th><th>URSSAF</th><th>URSSAF</th><th>Règlement</th><th></th></tr></thead>
   <tbody>${rows||`<tr><td colspan="13" class="empty">Aucune mission</td></tr>`}</tbody>
 </table></div>
-${showCA?buildCASection():""}
 ${showSat?buildSatSection():""}
 <div class="urssaf-bar">
   <div class="urssaf-item">URSSAF : <strong>26%</strong></div>
