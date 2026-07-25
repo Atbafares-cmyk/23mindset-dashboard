@@ -517,7 +517,6 @@ function render(){
   const urssafR=src.filter(m=>!m.urssafPaye).reduce((s,m)=>s+urssafM(m),0);
   const totJ=src.reduce((s,m)=>s+joursM(m),0);
   const today=new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"});
-  const moisList=getMoisList();
   const anneeList=getAnneeList();
   const anneeOpts=anneeList.map(a=>`<option value="${a}"${fY===a?" selected":""}>${a}</option>`).join("");
   const moisList=getMoisList();
