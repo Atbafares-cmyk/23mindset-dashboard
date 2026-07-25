@@ -233,14 +233,18 @@ let missions=loadData();
 let nextId=missions.reduce((a,x)=>Math.max(a,x.id),0)+1;
 
 // ── STATE ─────────────────────────────────────────────
-let fC="",fS="",fQ="",fU="",fM="";
+let fC="",fS="",fQ="",fU="",fM="",fY="";
 let satFC="",satFT="",satFTh="";
 let sortAsc=true,showSat=false;
 let modal=null,clientModal=null;
 let chartEvol=null,chartPie=null;
 
 // ── FILTERS / CHARTS ──────────────────────────────────
-function getMoisList(){return Array.from(new Set(missions.map(m=>primaryDate(m).slice(0,7)).filter(Boolean))).sort();}
+function getMoisList(){
+  const mois=missions.filter(m=>!fY||primaryDate(m).slice(0,4)===fY);
+  return Array.from(new Set(mois.map(m=>primaryDate(m).slice(0,7)).filter(Boolean))).sort();
+}
+function getAnneeList(){return Array.from(new Set(missions.map(m=>primaryDate(m).slice(0,4)).filter(Boolean))).sort();}
 function getFiltered(){
   let list=missions.filter(m=>{
     if(fC&&m.client!==fC)return false;
@@ -248,6 +252,7 @@ function getFiltered(){
     if(fU==="paye"&&!m.urssafPaye)return false;
     if(fU==="non"&&m.urssafPaye)return false;
     const pd=primaryDate(m);
+    if(fY&&pd.slice(0,4)!==fY)return false;
     if(fM&&pd.slice(0,7)!==fM)return false;
     if(fQ&&!m.intitule.toLowerCase().includes(fQ.toLowerCase())&&!m.type.toLowerCase().includes(fQ.toLowerCase()))return false;
     return true;
@@ -513,6 +518,9 @@ function render(){
   const totJ=src.reduce((s,m)=>s+joursM(m),0);
   const today=new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"});
   const moisList=getMoisList();
+  const anneeList=getAnneeList();
+  const anneeOpts=anneeList.map(a=>`<option value="${a}"${fY===a?" selected":""}>${a}</option>`).join("");
+  const moisList=getMoisList();
   const moisOpts=moisList.map(m=>`<option value="${m}"${fM===m?" selected":""}>${fmtMois(m)}</option>`).join("");
   const clientOpts=clients.map(c=>`<option value="${c.name}"${fC===c.name?" selected":""}>${c.name}</option>`).join("");
   const legend=clients.map(c=>`<div class="cl-item"><div class="cl-dot" style="background:${c.hex}"></div>${c.name}</div>`).join("");
@@ -558,6 +566,7 @@ function render(){
 </div>
 <div class="toolbar">
   <input type="text" placeholder="Rechercher…" value="${fQ}" oninput="fQ=this.value;render()" style="width:130px">
+  <select onchange="fY=this.value;fM='';render()"><option value="">Toutes les années</option>${anneeOpts}</select>
   <select onchange="fM=this.value;render()"><option value="">Tous les mois</option>${moisOpts}</select>
   <select onchange="fC=this.value;render()"><option value="">Tous les clients</option>${clientOpts}</select>
   <select onchange="fS=this.value;render()"><option value="">Tous les statuts</option>${STATUTS.map(s=>`<option value="${s}"${fS===s?" selected":""}>${s}</option>`).join("")}</select>
@@ -589,4 +598,3 @@ render();
 </script>
 </body>
 </html>
- 
